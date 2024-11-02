@@ -1,4 +1,5 @@
 import socket
+import os
 
 # Server ip and port not established yet
 SERVER_IP = ''
@@ -14,13 +15,23 @@ def connectToServer():
 
 
 def uploadFile(client_socket, filename):
-    print("")  # temporary error-from-no-code prevention
-    # TODO: implement uploadFile
+    if not os.path.isfile(filename):
+        print('File not found')
+        return False
+    else:
+        client_socket.send(f"UPLOAD {filename}".encode())
+        with open(filename, 'rb') as file:
+            while True:
+                data = file.read(BUFFER_SIZE)
+                if not data:
+                    break
+                # TODO: finish uploadFile implementation
 
 
 def downloadFile(client_socket, filename):
-    print("")  # temporary error-from-no-code prevention
-    # TODO: implement downloadFile
+    client_socket.send(f"DOWNLOAD {filename}")
+    response = client_socket.recv(BUFFER_SIZE)
+    # TODO: finish downloadFile implementation
 
 
 def deleteFile(client_socket, filename):
