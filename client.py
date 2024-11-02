@@ -12,3 +12,32 @@ def connectToServer():
     print('Connected to server')
     return client_socket
 
+
+def uploadFile(client_socket, filename):
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement uploadFile
+
+
+def downloadFile(client_socket, filename):
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement downloadFile
+
+
+def deleteFile(client_socket, filename):
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement deleteFile
+
+
+def viewDir():
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement viewDir
+
+
+def createSubfolder(client_socket, subfolder):
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement createSubfolder
+
+
+def deleteSubfolder(client_socket, subfolder):
+    print("")  # temporary error-from-no-code prevention
+    # TODO: implement deleteSubfolder
