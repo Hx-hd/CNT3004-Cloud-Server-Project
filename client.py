@@ -4,13 +4,16 @@ import os
 # Server ip and port not established yet
 SERVER_IP = ''
 SERVER_PORT = ''
-BUFFER_SIZE = 1024  # can edit as needed
+BUFFER_SIZE = 4096  # can edit as needed
+FORMAT = 'utf-8'
 
 
 def connectToServer():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((SERVER_IP, SERVER_PORT))
     print('Connected to server')
+    welcomeMessage = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    print(welcomeMessage)
     return client_socket
 
 
@@ -19,38 +22,53 @@ def uploadFile(client_socket, filename):
         print('File not found')
         return False
     else:
-        client_socket.send(f"UPLOAD {filename}".encode())
+        client_socket.send(f"UPLOAD {filename}").encode(FORMAT)
         with open(filename, 'rb') as file:
             while True:
-                data = file.read(BUFFER_SIZE)
+                data = file.read(BUFFER_SIZE).decode(FORMAT)
                 if not data:
                     break
-                # TODO: finish uploadFile implementation
+                else:
+                    client_socket.send(data)
+        print('File uploaded')
+                # TODO: revise uploadFile implementation with server completion
 
 
 def downloadFile(client_socket, filename):
     client_socket.send(f"DOWNLOAD {filename}")
     response = client_socket.recv(BUFFER_SIZE)
-    # TODO: finish downloadFile implementation
+    if not response.decode(FORMAT) == 'OK':
+        print("Download failed")
+        return False
+    if response.decode(FORMAT) == 'OK':
+        with open(filename, 'wb') as file:
+            while True:
+                data = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+                if not data:
+                    break
+                else:
+                    file.write(data)
+        print('File downloaded')
+    # TODO: revise downloadFile implementation with server completion
 
 
 def deleteFile(client_socket, filename):
-    print("")  # temporary error-from-no-code prevention
+    client_socket.send(f"DELETE {filename}").encode(FORMAT)
     # TODO: implement deleteFile
 
 
-def viewDir():
-    print("")  # temporary error-from-no-code prevention
+def viewDir(client_socket):
+    client_socket.send(f"VIEWDIR").encode(FORMAT)
     # TODO: implement viewDir
 
 
 def createSubfolder(client_socket, subfolder):
-    print("")  # temporary error-from-no-code prevention
+    client_socket.send(f"CREATE SUBFOLDER {subfolder}").encode(FORMAT)
     # TODO: implement createSubfolder
 
 
 def deleteSubfolder(client_socket, subfolder):
-    print("")  # temporary error-from-no-code prevention
+    client_socket.send(f"DELETE SUBFOLDER {subfolder}").encode(FORMAT)
     # TODO: implement deleteSubfolder
 
 def main():
@@ -76,10 +94,11 @@ def main():
         # Download
         elif userInput.startswith("download") or userInput.startswith("Download"):
             filename = userInput.split(" ")[1]
+            downloadFile(client, filename)
 
         # Dir
         elif userInput == "dir" or userInput == "Dir":
-            viewDir()
+            viewDir(client)
 
         # Delete file/subfolder
         elif userInput.startswith("delete") or userInput.startswith("Delete"):
