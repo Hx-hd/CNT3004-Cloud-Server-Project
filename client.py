@@ -48,18 +48,40 @@ def downloadFile(client_socket, filename):
                     break
                 else:
                     file.write(data)
-        print('File downloaded')
+        print(f"{filename} downloaded")
     # TODO: revise downloadFile implementation with server completion
 
 
 def deleteFile(client_socket, filename):
-    client_socket.send(f"DELETE {filename}").encode(FORMAT)
     # TODO: implement deleteFile
+    client_socket.send(f"DELETE {filename}")
+    response = client_socket.recv(BUFFER_SIZE)
+    if response == 'FNF': # file not found
+        print(f"{filename} not found")
+    elif response == 'FIP': # file in processing
+        print(f"{filename} is being processed right now")
 
 
-def viewDir(client_socket):
-    client_socket.send(f"VIEWDIR").encode(FORMAT)
+def viewDir():
     # TODO: implement viewDir
+    client_socket.send("VIEWDIR").encode(FORMAT)
+    '''
+    PSEUDOCODE:
+    viewDir(folder, int n):
+    # n refers to number of TABS to print
+
+    if(!folder), return
+    else
+        for file in folder:
+            if(file == folder): # folders are files too (????)
+                viewDir(folder, n++)
+            else:
+                serverMessage += print(\t * n);
+                serverMessage += print(file.name);
+                serverMessage += print(\n);
+            printToClient(serverMessage); # one line of message = TABS + filename + nextline
+                                          # we send one line of msg to client at a time      
+    '''
 
 
 def createSubfolder(client_socket, subfolder):
