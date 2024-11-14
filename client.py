@@ -12,6 +12,7 @@ def connectToServer():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((SERVER_IP, SERVER_PORT))
     print('Connected to server')
+    # receive and print welcome message from server
     welcomeMessage = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     print(welcomeMessage)
     return client_socket
@@ -30,7 +31,7 @@ def uploadFile(client_socket, filename):
                     break
                 else:
                     client_socket.send(data)
-        print('File uploaded')
+        print(f'{filename} was uploaded successfully')
                 # TODO: revise uploadFile implementation with server completion
 
 
@@ -48,7 +49,7 @@ def downloadFile(client_socket, filename):
                     break
                 else:
                     file.write(data)
-        print(f"{filename} downloaded")
+        print(f"{filename} was downloaded successfully")
     # TODO: revise downloadFile implementation with server completion
 
 
@@ -62,7 +63,7 @@ def deleteFile(client_socket, filename):
         print(f"{filename} is being processed right now")
 
 
-def viewDir():
+def viewDir(client_socket):
     # TODO: implement viewDir
     client_socket.send("VIEWDIR").encode(FORMAT)
     '''
@@ -86,12 +87,28 @@ def viewDir():
 
 def createSubfolder(client_socket, subfolder):
     client_socket.send(f"CREATE SUBFOLDER {subfolder}").encode(FORMAT)
-    # TODO: implement createSubfolder
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    if response == 'OK':
+        print(f"{subfolder} created successfully")
+    else:
+        print(f"Error: creation of subfolder {subfolder} failed")
+    # TODO: revise createSubfolder implementation with server completion
 
 
 def deleteSubfolder(client_socket, subfolder):
     client_socket.send(f"DELETE SUBFOLDER {subfolder}").encode(FORMAT)
-    # TODO: implement deleteSubfolder
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    if response == 'SNF':  # subfolder not found
+        print(f"{subfolder} is not found")
+    # possibly will not need SIP response
+    elif response == 'SIP':  # subfolder in processing
+        print(f"{subfolder} is being processed right now")
+    elif response == 'OK':
+        print(f"{subfolder} was deleted")
+    else:
+        print(f"Error: {subfolder} was not deleted")
+    # TODO: revise deleteSubfolder implementation with server completion
+
 
 def main():
     # establish connection
