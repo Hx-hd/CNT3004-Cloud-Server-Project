@@ -1,7 +1,9 @@
 import os
 import socket
 import threading
-
+import hashlib
+import json
+import time
 
 ## (Not sure yet on what to use for ip and port) 
 IP = socket.gethostbyname(socket.gethostname())
@@ -45,6 +47,25 @@ def handle_client(conn, addr) :
 
     conn.close()
 
+#Hash password function for security
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+#User Authentication
+def authenticate_user(conn):
+    conn.send("USER@Please enter your username:".encode(FORMAT))
+    username = conn.recv(SIZE).decode(FORMAT).strip()
+    conn.send("PASS@Please enter your password:".encode(FORMAT))
+    password = conn.recv(SIZE).decode(FORMAT).strip()
+    hashed_password = hash_password(password)
+    with open("users.json", "r") as f:
+        users = json.load(f)
+    if username in users and users[username] == hashed_password:
+        conn.send(("OK@Authentication successful.".encode(FORMAT)))
+        return True
+    else:
+        conn.send(("ERR@Authentication failed.".encode(FORMAT)))
+        return False
 def main() :
     print("[STARTING] Server is starting...")
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
