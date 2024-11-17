@@ -3,7 +3,7 @@ import os
 
 # Server ip and port not established yet
 SERVER_IP = ''
-SERVER_PORT = ''
+SERVER_PORT = 4466
 BUFFER_SIZE = 4096  # can edit as needed
 FORMAT = 'utf-8'
 
@@ -37,45 +37,54 @@ def uploadFile(client_socket, filename):
     if not os.path.isfile(filename):
         print('File not found')
         return False
-    else:
-        client_socket.send(f"UPLOAD {filename}").encode(FORMAT)
-        with open(filename, 'rb') as file:
-            while True:
-                data = file.read(BUFFER_SIZE).decode(FORMAT)
-                if not data:
-                    break
-                else:
-                    client_socket.send(data)
-        print(f'{filename} was uploaded successfully')
+    # Check if file already exists on the server
+    client_socket.send(f"CHECK_EXISTENCE@{os.path.basename(filename)}".encode(FORMAT))
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    if response == "FE":
+        overwrite = input("File already exists. Overwrite? (y/n): ")
+        if overwrite.lower() != 'y':
+            return
+    client_socket.send(f"UPLOAD@{os.path.basename(filename)}".encode(FORMAT))
+    with open(filename, 'rb') as file:
+        while True:
+            data = file.read(BUFFER_SIZE).decode(FORMAT)
+            if not data:
+                break
+            else:
+                client_socket.send(data)
+    print(f'{filename} was uploaded successfully')
                 # TODO: revise uploadFile implementation with server completion
 
 
 def downloadFile(client_socket, filename):
-    client_socket.send(f"DOWNLOAD {filename}")
-    response = client_socket.recv(BUFFER_SIZE)
+    client_socket.send(f"DOWNLOAD {filename}").encode(FORMAT)
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if not response.decode(FORMAT) == 'OK':
         print("Download failed")
         return False
-    if response.decode(FORMAT) == 'OK':
-        with open(filename, 'wb') as file:
-            while True:
-                data = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-                if not data:
-                    break
-                else:
-                    file.write(data)
-        print(f"{filename} was downloaded successfully")
+    with open(filename, 'wb') as file:
+        while True:
+            data = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+            if not data:
+                break
+            else:
+                file.write(data)
+    print(f"{filename} was downloaded successfully")
     # TODO: revise downloadFile implementation with server completion
 
 
 def deleteFile(client_socket, filename):
     # TODO: implement deleteFile
-    client_socket.send(f"DELETE {filename}")
-    response = client_socket.recv(BUFFER_SIZE)
+    client_socket.send(f"CHECK_EXISTENCE@{os.path.basename(filename)}".encode(FORMAT))
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == 'FNF': # file not found
-        print(f"{filename} not found")
-    elif response == 'FIP': # file in processing
-        print(f"{filename} is being processed right now")
+        print(f"Error: {filename} not found")
+        return
+    if response == "FE":
+        client_socket.send(f"DELETE@{filename}".encode(FORMAT))
+        response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    print(response)
+    return
 
 
 def viewDir(client_socket):
@@ -101,7 +110,7 @@ def viewDir(client_socket):
 
 
 def createSubfolder(client_socket, subfolder):
-    client_socket.send(f"CREATE SUBFOLDER {subfolder}").encode(FORMAT)
+    client_socket.send(f"CREATE_SUBFOLDER {subfolder}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == 'OK':
         print(f"{subfolder} created successfully")
@@ -111,7 +120,7 @@ def createSubfolder(client_socket, subfolder):
 
 
 def deleteSubfolder(client_socket, subfolder):
-    client_socket.send(f"DELETE SUBFOLDER {subfolder}").encode(FORMAT)
+    client_socket.send(f"DELETE_SUBFOLDER {subfolder}").encode(FORMAT)
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == 'SNF':  # subfolder not found
         print(f"{subfolder} is not found")
