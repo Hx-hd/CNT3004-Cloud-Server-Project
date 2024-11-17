@@ -7,7 +7,7 @@ import time
 
 ## (Not sure yet on what to use for ip and port) 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = ''
+PORT = 4466
 ADDR = (IP, PORT)
 SIZE = 4096
 FORMAT = "utf-8"
@@ -28,22 +28,76 @@ def handle_client(conn, addr) :
         data = conn.recv(SIZE).decode(FORMAT)
         data = data.split("@")
         cmd = data[0]
-        if cmd == "HELP" :
-            send_data = "OK@"
-            send_data += "LIST: List all files in the server directory. \n"
-            send_data += "UPLOAD <path>: Upload files to the server. \n"
-            send_data += "DELETE <path>: List all files from the server. \n"
-            send_data += "LOGOUT: Disconnect from the server. \n"
 
+        if cmd == "CHECK_EXISTENCE":
+            filename = data[1]
+            if os.path.exists(os.path.join(STORAGE_PATH, filename)):
+                conn.send("FE".encode(FORMAT))
+            else:
+                conn.send("FNF".encode(FORMAT))
+
+        elif cmd == "DIR":
+            files = os.listdir(STORAGE_PATH)
+            send_data = "OK"
+            if len(files) == 0:
+                send_data += "The server directory is empty"
+            else:
+                send_data += "\n".join(f for f in files)
             conn.send(send_data.encode(FORMAT))
 
-        if cmd == DISCONNECT_MSG:
+        elif cmd == "UPLOAD":
+            filename = data[1]
+            with open(os.path.join(STORAGE_PATH, filename), 'wb') as file:
+                while True:
+                    data = conn.recv(SIZE)
+                    if not data:
+                        break
+                    file.write(data)
+            conn.send("UPLOAD_SUCCESSFUL".encode(FORMAT))
+
+        elif cmd == "DOWNLOAD":
+            filename = data[1]
+            filepath = os.path.join(STORAGE_PATH, filename)
+            if os.path.isfile(filepath):
+                conn.send("OK".encode(FORMAT))  # Send OK response
+                with open(filepath, 'rb') as file:
+                    while True:
+                        data = file.read(SIZE)
+                        if not data:
+                            break
+                        conn.send(data)  # Send file data
+            else:
+                conn.send("File not found".encode(FORMAT))  # Send error response
+
+        elif cmd == "DELETE":
+            filename = data[1]
+            if os.path.exists(os.path.join(STORAGE_PATH, filename)):
+                os.remove(os.path.join(STORAGE_PATH, filename))
+                conn.send("FILE_DELETED".encode(FORMAT))
+            else:
+                conn.send("FNF".encode(FORMAT))
+
+        elif cmd == "CREATE_SUBFOLDER":
+            subfolder_name = data[1]
+            os.makedirs(os.path.join(STORAGE_PATH, subfolder_name), exist_ok=True)
+            conn.send("SUBFOLDER_CREATED".encode(FORMAT))
+
+        elif cmd == "DELETE_SUBFOLDER":
+            subfolder_name = data[1]
+            subfolder_path = os.path.join(STORAGE_PATH, subfolder_name)
+            if os.path.exists(subfolder_path):
+                os.rmdir(subfolder_path)
+                conn.send("SUBFOLDER_DELETED".encode(FORMAT))
+            else:
+                conn.send("SUBFOLDER_NOT_FOUND".encode(FORMAT))
+
+        elif cmd == DISCONNECT_MSG:
             print(f"[DISCONNECTED] {addr} disconnected. ")
             break
 
-        print(f"[{addr} {msg}]")
-        msg = f"Msg received: {msg}"
-        conn.send(msg.encode(FORMAT))
+        # print(f"[{addr} {msg}]")
+        # msg = f"Msg received: {msg}"
+        # conn.send(msg.encode(FORMAT))
 
     conn.close()
 
