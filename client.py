@@ -17,6 +17,21 @@ def connectToServer():
     print(welcomeMessage)
     return client_socket
 
+def login(client_socket):
+    while True:
+        prompt = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+        username = input(prompt)
+        client_socket.send(username.encode(FORMAT))
+        password = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+        client_socket.send(password.encode(FORMAT))
+        response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+        print(response)
+        # TODO: add cases for if user login is successful and user login failed
+        # Possible Solution #1:
+        if response.split(' ')[1] == "successful":
+            break
+        else:
+            continue
 
 def uploadFile(client_socket, filename):
     if not os.path.isfile(filename):
@@ -113,6 +128,8 @@ def deleteSubfolder(client_socket, subfolder):
 def main():
     # establish connection
     client = connectToServer()
+    # login user
+    login(client)
 
     # prompt client with given command options
     while True:
