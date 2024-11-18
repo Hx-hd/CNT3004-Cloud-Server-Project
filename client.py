@@ -89,24 +89,19 @@ def deleteFile(client_socket, filename):
 
 def viewDir(client_socket):
     # TODO: implement viewDir
-    client_socket.send("VIEWDIR").encode(FORMAT)
-    '''
-    PSEUDOCODE:
-    viewDir(folder, int n):
-    # n refers to number of TABS to print
-
-    if(!folder), return
-    else
-        for file in folder:
-            if(file == folder): # folders are files too (????)
-                viewDir(folder, n++)
-            else:
-                serverMessage += print(\t * n);
-                serverMessage += print(file.name);
-                serverMessage += print(\n);
-            printToClient(serverMessage); # one line of message = TABS + filename + nextline
-                                          # we send one line of msg to client at a time      
-    '''
+    client_socket.send("DIR").encode(FORMAT)
+    response = client.recv(BUFFER_SIZE).decode(FORMAT)
+    if response == "OK" :
+        print("FILES IN STORAGE:")
+        while True:
+            filename = client.recv(BUFFER_SIZE).decode(FORMAT)
+            if not filename:
+                break
+            print(filename)
+        return
+    else:
+        print("Error retrieving directory contents")
+        return
 
 
 def createSubfolder(client_socket, subfolder):

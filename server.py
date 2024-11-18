@@ -37,13 +37,22 @@ def handle_client(conn, addr) :
                 conn.send("FNF".encode(FORMAT))
 
         elif cmd == "DIR":
-            files = os.listdir(STORAGE_PATH)
-            send_data = "OK"
-            if len(files) == 0:
-                send_data += "The server directory is empty"
-            else:
-                send_data += "\n".join(f for f in files)
-            conn.send(send_data.encode(FORMAT))
+            conn.send("OK".encode(FORMAT))
+            def viewDir(content, n):
+                send_data = ""
+                n += 1
+                dirList = os.listdir(content)
+                if dirList = []:
+                    return
+                
+                for dir in dirList:
+                    send_data = '\t'*n + dir
+                    conn.send(send_data.encode(FORMAT))
+                    print(send_data)
+                    if os.path.isdir(dir) == True:
+                        viewDir(dir, n)
+            
+            viewDir(STORAGE_PATH, -1)
 
         elif cmd == "UPLOAD":
             filename = data[1]
