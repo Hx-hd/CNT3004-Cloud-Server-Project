@@ -2,7 +2,7 @@ import socket
 import os
 
 # Server ip and port not established yet
-SERVER_IP = ''
+SERVER_IP = socket.gethostbyname(socket.gethostname())
 SERVER_PORT = 4466
 BUFFER_SIZE = 4096  # can edit as needed
 FORMAT = 'utf-8'
@@ -19,19 +19,24 @@ def connectToServer():
 
 def login(client_socket):
     while True:
-        prompt = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-        username = input(prompt)
-        client_socket.send(username.encode(FORMAT))
-        password = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-        client_socket.send(password.encode(FORMAT))
-        response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-        print(response)
-        # TODO: add cases for if user login is successful and user login failed
-        # Possible Solution #1:
-        if response.split(' ')[1] == "successful":
-            break
+
+        prompt = client_socket.recv(BUFFER_SIZE).decode(FORMAT)  # Receive prompt from server
+        print(prompt)  # Print the prompt to the user
+        username = input("Enter your username: ")
+        client_socket.send(username.encode(FORMAT))  # Send username to server
+
+        prompt = client_socket.recv(BUFFER_SIZE).decode(FORMAT)  # Receive password prompt
+        print(prompt)  # Print the prompt to the user
+        password = input("Enter your password: ")
+
+        client_socket.send(password.encode(FORMAT))  # Send password to server
+        response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)  # Receive authentication response
+
+        if response == "OK":
+            print("Login successful!")
+            break  # Exit the loop if login is successful
         else:
-            continue
+            print("Login failed. Please try again.")
 
 def uploadFile(client_socket, filename):
     if not os.path.isfile(filename):
@@ -47,7 +52,7 @@ def uploadFile(client_socket, filename):
     client_socket.send(f"UPLOAD@{os.path.basename(filename)}".encode(FORMAT))
     with open(filename, 'rb') as file:
         while True:
-            data = file.read(BUFFER_SIZE).decode(FORMAT)
+            data = file.read(BUFFER_SIZE)
             if not data:
                 break
             else:
@@ -57,39 +62,45 @@ def uploadFile(client_socket, filename):
 
 
 def downloadFile(client_socket, filename):
-    client_socket.send(f"DOWNLOAD {filename}").encode(FORMAT)
+    client_socket.send(f"DOWNLOAD@{filename}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-    if not response.decode(FORMAT) == 'OK':
+
+    if response != 'OK':
         print("Download failed")
         return False
+    
     with open(filename, 'wb') as file:
         while True:
-            data = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-            if not data:
+            data = client_socket.recv(BUFFER_SIZE)
+            if data == b"EOF":  # Check for EOF message
                 break
-            else:
-                file.write(data)
+            if not data:
+                break                
+            file.write(data)
     print(f"{filename} was downloaded successfully")
     # TODO: revise downloadFile implementation with server completion
 
 
 def deleteFile(client_socket, filename):
     # TODO: implement deleteFile
+    filename = input("Enter the name of the file to delete: ")
     client_socket.send(f"CHECK_EXISTENCE@{os.path.basename(filename)}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-    if response == 'FNF': # file not found
-        print(f"Error: {filename} not found")
+    if response == "FNF":
+        print("Error: File not found")
         return
+    
     if response == "FE":
         client_socket.send(f"DELETE@{filename}".encode(FORMAT))
         response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-    print(response)
+        if response == "OK":
+            print("File deleted successfully")
     return
 
 
 def viewDir(client_socket):
     # TODO: implement viewDir
-    client_socket.send("DIR").encode(FORMAT)
+    client_socket.send("DIR".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == "OK" :
         print("FILES IN STORAGE:")
@@ -105,23 +116,21 @@ def viewDir(client_socket):
 
 
 def createSubfolder(client_socket, subfolder):
-    client_socket.send(f"CREATE_SUBFOLDER {subfolder}".encode(FORMAT))
+    client_socket.send(f"CREATE_SUBFOLDER@{subfolder}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == 'OK':
-        print(f"{subfolder} created successfully")
+        print(f"Subfolder {subfolder} created successfully")
     else:
         print(f"Error: creation of subfolder {subfolder} failed")
     # TODO: revise createSubfolder implementation with server completion
 
 
 def deleteSubfolder(client_socket, subfolder):
-    client_socket.send(f"DELETE_SUBFOLDER {subfolder}").encode(FORMAT)
+    client_socket.send(f"DELETE_SUBFOLDER@{subfolder}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == 'SNF':  # subfolder not found
         print(f"{subfolder} is not found")
     # possibly will not need SIP response
-    elif response == 'SIP':  # subfolder in processing
-        print(f"{subfolder} is being processed right now")
     elif response == 'OK':
         print(f"{subfolder} was deleted")
     else:
@@ -143,34 +152,36 @@ def main():
                           "\n\tdelete subfolder (subfolder name) - delete subfolder\n\texit - exit program\n")
 
         # Exit
-        if userInput == "exit" or userInput == "Exit":
+        if userInput.lower() == "exit":
             break
 
         # Upload
-        elif userInput.startswith("upload") or userInput.startswith("Upload"):
+        elif userInput.lower().startswith("upload"):
             filename = userInput.split(" ")[1]
             uploadFile(client, filename)
 
         # Download
-        elif userInput.startswith("download") or userInput.startswith("Download"):
+        elif userInput.lower().startswith("download"):
             filename = userInput.split(" ")[1]
             downloadFile(client, filename)
 
         # Dir
-        elif userInput == "dir" or userInput == "Dir":
+        elif userInput.lower() == "dir":
             viewDir(client)
 
         # Delete file/subfolder
-        elif userInput.startswith("delete") or userInput.startswith("Delete"):
-            if userInput.split(" ")[1] == "subfolder" or userInput.split(" ")[1] == "Subfolder":
-                subfolder = userInput.split(" ")[1]
+        elif userInput.lower().startswith("delete"):
+
+            if userInput.split(" ")[1].lower() == "subfolder":
+                subfolder = userInput.split(" ")[2]
                 deleteSubfolder(client, subfolder)
-            filename = userInput.split(" ")[1]
-            deleteFile(client, filename)
+            else:
+                filename = userInput.split(" ")[1]
+                deleteFile(client, filename)
 
         # Create subfolder
-        elif userInput.startswith("create") or userInput.startswith("Create"):
-            subfolder = userInput.split(" ")[1]
+        elif userInput.lower().startswith("create"):
+            subfolder = userInput.split(" ")[2]
             createSubfolder(client, subfolder)
 
         # Invalid response handling

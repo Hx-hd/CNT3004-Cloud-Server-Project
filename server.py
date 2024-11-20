@@ -19,9 +19,44 @@ if not os.path.exists(STORAGE_PATH):
     os.makedirs(STORAGE_PATH)
 
 
+def authenticate_user(conn):
+
+    conn.send("USERNAME".encode(FORMAT))
+    username = conn.recv(SIZE).decode(FORMAT).strip()
+    conn.send("PASSWORD".encode(FORMAT))
+    password = conn.recv(SIZE).decode(FORMAT).strip()
+    hashed_password = hash_password(password)
+
+    # Load users from JSON file
+    with open("users.json", "r") as f:
+        users = json.load(f)
+
+    if username in users and users[username] == hashed_password:
+        conn.send("OK".encode(FORMAT))
+        return True
+    else:
+        conn.send("ERR".encode(FORMAT))
+        return False
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
 def handle_client(conn, addr) :
     print(f"[NEW CONNECTION] {addr} connected")
-    conn.send("OK@Welcome to the File Server.").encode(FORMAT)
+    conn.send("OK@Welcome to the File Server.".encode(FORMAT))
+
+    # Allow multiple authentication attempts
+    authenticated = False
+
+    while not authenticated:
+        authenticated = authenticate_user(conn)
+
+        if not authenticated:
+            print(f"[DISCONNECTED] {addr} failed to authenticate.")
+            conn.send("Authentication failed. Disconnecting...".encode(FORMAT))
+            conn.close()  # Close connection if authentication fails
+
+            return
 
     connected = True
     while connected :
@@ -75,6 +110,9 @@ def handle_client(conn, addr) :
                         if not data:
                             break
                         conn.send(data)  # Send file data
+                print(f"[INFO] {filename} has been sent to {addr}.")
+                conn.send(b"EOF")  # Indicate end of file transfer
+
             else:
                 conn.send("File not found".encode(FORMAT))  # Send error response
 
@@ -82,23 +120,23 @@ def handle_client(conn, addr) :
             filename = data[1]
             if os.path.exists(os.path.join(STORAGE_PATH, filename)):
                 os.remove(os.path.join(STORAGE_PATH, filename))
-                conn.send("FILE_DELETED".encode(FORMAT))
+                conn.send("OK".encode(FORMAT))
             else:
                 conn.send("FNF".encode(FORMAT))
 
         elif cmd == "CREATE_SUBFOLDER":
             subfolder_name = data[1]
             os.makedirs(os.path.join(STORAGE_PATH, subfolder_name), exist_ok=True)
-            conn.send("SUBFOLDER_CREATED".encode(FORMAT))
+            conn.send("OK".encode(FORMAT))
 
         elif cmd == "DELETE_SUBFOLDER":
             subfolder_name = data[1]
             subfolder_path = os.path.join(STORAGE_PATH, subfolder_name)
             if os.path.exists(subfolder_path):
                 os.rmdir(subfolder_path)
-                conn.send("SUBFOLDER_DELETED".encode(FORMAT))
+                conn.send("OK".encode(FORMAT))
             else:
-                conn.send("SUBFOLDER_NOT_FOUND".encode(FORMAT))
+                conn.send("SNF".encode(FORMAT))
 
         elif cmd == DISCONNECT_MSG:
             print(f"[DISCONNECTED] {addr} disconnected. ")
@@ -111,36 +149,23 @@ def handle_client(conn, addr) :
     conn.close()
 
 #Hash password function for security
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
 
-#User Authentication
-def authenticate_user(conn):
-    conn.send("USER@Please enter your username:".encode(FORMAT))
-    username = conn.recv(SIZE).decode(FORMAT).strip()
-    conn.send("PASS@Please enter your password:".encode(FORMAT))
-    password = conn.recv(SIZE).decode(FORMAT).strip()
-    hashed_password = hash_password(password)
-    with open("users.json", "r") as f:
-        users = json.load(f)
-    if username in users and users[username] == hashed_password:
-        conn.send(("OK@Authentication successful.".encode(FORMAT)))
-        return True
-    else:
-        conn.send(("ERR@Authentication failed.".encode(FORMAT)))
-        return False
+
 def main() :
+
     print("[STARTING] Server is starting...")
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(ADDR)
     server.listen()
     print(f"[LISTENING] Server is listening on {IP}:{PORT}")
 
-    while True :
-        conn, addr = server.accept()
+    while True:
+        conn, addr = server.accept()  # Accept a new connection
+        print(f"[NEW CONNECTION] {addr} connected")      
+        # Start a new thread to handle the client
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
 
 if __name__ == "__main__" :
