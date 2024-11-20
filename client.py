@@ -90,11 +90,11 @@ def deleteFile(client_socket, filename):
 def viewDir(client_socket):
     # TODO: implement viewDir
     client_socket.send("DIR").encode(FORMAT)
-    response = client.recv(BUFFER_SIZE).decode(FORMAT)
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == "OK" :
         print("FILES IN STORAGE:")
         while True:
-            filename = client.recv(BUFFER_SIZE).decode(FORMAT)
+            filename = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
             if not filename:
                 break
             print(filename)

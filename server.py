@@ -42,7 +42,7 @@ def handle_client(conn, addr) :
                 send_data = ""
                 n += 1
                 dirList = os.listdir(content)
-                if dirList = []:
+                if dirList == []:
                     return
                 
                 for dir in dirList:
