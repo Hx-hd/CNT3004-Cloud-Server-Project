@@ -2,7 +2,9 @@ import socket
 import os
 
 # Server ip and port not established yet
-SERVER_IP = socket.gethostbyname(socket.gethostname())
+# SERVER_IP = socket.gethostbyname(socket.gethostname())
+# SERVER_IP = '34.123.134.14'
+SERVER_IP = '10.128.0.2'
 SERVER_PORT = 4466
 BUFFER_SIZE = 4096  # can edit as needed
 FORMAT = 'utf-8'
