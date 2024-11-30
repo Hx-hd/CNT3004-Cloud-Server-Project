@@ -2,9 +2,9 @@ import socket
 import os
 
 # Server ip and port not established yet
-# SERVER_IP = socket.gethostbyname(socket.gethostname())
+SERVER_IP = socket.gethostbyname(socket.gethostname())
 # SERVER_IP = '34.123.134.14'
-SERVER_IP = '10.128.0.2'
+# SERVER_IP = '10.128.0.2'
 SERVER_PORT = 4466
 BUFFER_SIZE = 4096  # can edit as needed
 FORMAT = 'utf-8'
@@ -13,15 +13,17 @@ FORMAT = 'utf-8'
 def connectToServer():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((SERVER_IP, SERVER_PORT))
-    print('Connected to server')
+    
     # receive and print welcome message from server
-    welcomeMessage = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
-    print(welcomeMessage)
-    return client_socket
+    response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
+    if response == 'OK' :
+        print('Connected to server')
+        return client_socket
+    
 
 def login(client_socket):
     while True:
-
+        client_socket.send("LOGIN".encode(FORMAT))
         prompt = client_socket.recv(BUFFER_SIZE).decode(FORMAT)  # Receive prompt from server
         print(prompt)  # Print the prompt to the user
         username = input("Enter your username: ")
@@ -41,6 +43,8 @@ def login(client_socket):
             print("Login failed. Please try again.")
 
 def uploadFile(client_socket, filename):
+
+
     if not os.path.isfile(filename):
         print('File not found')
         return False
@@ -51,7 +55,7 @@ def uploadFile(client_socket, filename):
         overwrite = input("File already exists. Overwrite? (y/n): ")
         if overwrite.lower() != 'y':
             return
-    client_socket.send(f"UPLOAD@{os.path.basename(filename)}".encode(FORMAT))
+    client_socket.send(f"UPLOAD@{os.path.basename(filename)}@{str(os.path.getsize(filename))}".encode(FORMAT))
     with open(filename, 'rb') as file:
         while True:
             data = file.read(BUFFER_SIZE)
@@ -76,8 +80,7 @@ def downloadFile(client_socket, filename):
             data = client_socket.recv(BUFFER_SIZE)
             if data == b"EOF":  # Check for EOF message
                 break
-            if not data:
-                break                
+                           
             file.write(data)
     print(f"{filename} was downloaded successfully")
     # TODO: revise downloadFile implementation with server completion
@@ -85,7 +88,6 @@ def downloadFile(client_socket, filename):
 
 def deleteFile(client_socket, filename):
     # TODO: implement deleteFile
-    filename = input("Enter the name of the file to delete: ")
     client_socket.send(f"CHECK_EXISTENCE@{os.path.basename(filename)}".encode(FORMAT))
     response = client_socket.recv(BUFFER_SIZE).decode(FORMAT)
     if response == "FNF":

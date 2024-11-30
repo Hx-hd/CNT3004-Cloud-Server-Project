@@ -4,7 +4,7 @@ import threading
 import hashlib
 import json
 import time
-import network_analysis
+from network_analysis import NetworkAnalyzer
 
 ## (Not sure yet on what to use for ip and port) 
 IP = socket.gethostbyname(socket.gethostname())
@@ -15,8 +15,8 @@ FORMAT = "utf-8"
 STORAGE_PATH = "./server_storage"
 DISCONNECT_MSG = "LOGOUT"
 
-clients = []
 
+network_analysis = NetworkAnalyzer()  
 
 
 if not os.path.exists(STORAGE_PATH):
@@ -25,34 +25,35 @@ if not os.path.exists(STORAGE_PATH):
 
 
 def authenticate_user(conn):
+    cmd = conn.recv(SIZE).decode(FORMAT).strip()
+    if cmd == 'LOGIN' :
 
-    conn.send("USERNAME".encode(FORMAT))
-    username = conn.recv(SIZE).decode(FORMAT).strip()
-    conn.send("PASSWORD".encode(FORMAT))
-    password = conn.recv(SIZE).decode(FORMAT).strip()
-    hashed_password = hash_password(password)
+        conn.send("USERNAME".encode(FORMAT))
+        username = conn.recv(SIZE).decode(FORMAT).strip()
+        conn.send("PASSWORD".encode(FORMAT))
+        password = conn.recv(SIZE).decode(FORMAT).strip()
+        hashed_password = hash_password(password)
 
-    # Load users from JSON file
-    with open("users.json", "r") as f:
-        users = json.load(f)
+        # Load users from JSON file
+        with open("users.json", "r") as f:
+            users = json.load(f)
 
-    if username in users and users[username] == hashed_password:
-        conn.send("OK".encode(FORMAT))
-        return True
-    else:
-        conn.send("ERR".encode(FORMAT))
-        return False
+        if username in users and users[username] == hashed_password:
+            conn.send("OK".encode(FORMAT))
+            return True
+        else:
+            conn.send("ERR".encode(FORMAT))
+            return False
+        
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def handle_client(conn, addr) :
 
-    global clients
     print(f"[NEW CONNECTION] {addr} connected")
     
-    clients.append(conn)
-    conn.send("OK@Welcome to the File Server.".encode(FORMAT))
+    conn.send("OK".encode(FORMAT))
 
     # Allow multiple authentication attempts
     authenticated = False
@@ -100,50 +101,59 @@ def handle_client(conn, addr) :
             return
 
         elif cmd == "UPLOAD":
+            print(f"[DEBUG] Upload command received for {filename} from {addr}")
             filename = data[1]
+            file_size = int(data[2])
+            recieved_size = 0
             start_time = time.time()
             with open(os.path.join(STORAGE_PATH, filename), 'wb') as file:
-                while True:
+                while recieved_size < file_size:
                     data = conn.recv(SIZE)
                     if not data:
+                        print("[DEBUG] No more data received, breaking the loop.")
                         break
                     file.write(data)
+                    recieved_size += len(data)
+                    
             end_time = time.time()
             transfer_time = end_time - start_time
-            upload_rate = os.path.getsize(os.path.join(STORAGE_PATH, filename)) / transfer_time
-            conn.sendall("UPLOAD_SUCCESSFUL".encode(FORMAT))
-            conn.send(f"UPLOAD_METRICS@{transfer_time}@{upload_rate}@0@{threading.active_count()}".encode(FORMAT))    
+            upload_rate = (os.path.getsize(os.path.join(STORAGE_PATH, filename)) / 1000000) / transfer_time
+            # conn.send("EOF".encode(FORMAT))
+            print(f"[INFO]{addr} has uploaded {filename} to server.")
+            metrics = network_analysis.log_metrics('Upload', transfer_time, upload_rate, 0, threading.active_count() - 1)
+            print(metrics)
+            network_analysis.save_metrics("network_metrics.csv")
+            
+              
             
 
         elif cmd == "DOWNLOAD":
             filename = data[1]
             filepath = os.path.join(STORAGE_PATH, filename)
+            file_size = os.path.getsize(filepath)
+            recieved_size = 0
             if os.path.isfile(filepath):
                 conn.send("OK".encode(FORMAT))  # Send OK response
                 start_time = time.time()
                 with open(filepath, 'rb') as file:
-                    while True:
+                    while recieved_size < file_size:
                         data = file.read(SIZE)
                         if not data:
                             break
                         conn.send(data)  # Send file data
+                        recieved_size += len(data)
+                        
                         
                 end_time = time.time()  # End timing
                 transfer_time = end_time - start_time
-                download_rate = os.path.getsize(filepath) / transfer_time
+                download_rate = (os.path.getsize(filepath) / 1000000) / transfer_time
                 conn.send(b"EOF")  # Indicate end of file transfer
-                for client in clients:
-                    try:
-                        client.sendall("DOWNLOAD_SUCCESSFUL".encode(FORMAT))
-                        response = client.recv(SIZE).decode(FORMAT)
-                        if response == "OK":
-                            conn.send(f"DOWNLOAD_METRICS@{transfer_time}@0@{download_rate}@{threading.active_count()}".encode(FORMAT))
-                    except Exception as e:
-
-                        print(f"Error sending message to a client: {e}")
-                
-                
                 print(f"[INFO] {filename} has been sent to {addr}.")
+                metrics = network_analysis.log_metrics('Download', transfer_time, 0, download_rate, threading.active_count() - 1)
+                print(metrics)
+                network_analysis.save_metrics("network_metrics.csv")
+                
+                
                 
 
             else:
@@ -178,7 +188,7 @@ def handle_client(conn, addr) :
         # print(f"[{addr} {msg}]")
         # msg = f"Msg received: {msg}"
         # conn.send(msg.encode(FORMAT))
-    clients.clear()
+    
     conn.close()
 
 #Hash password function for security
